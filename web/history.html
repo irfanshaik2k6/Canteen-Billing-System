@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order History - Canteen Billing System</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Specific styles for history table */
+    .history-container {
+      max-width: 1100px;
+      margin: 28px auto;
+      padding: 0 24px;
+    }
+
+    .history-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--border-warm);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .history-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .history-stats {
+      display: flex;
+      gap: 16px;
+    }
+
+    .stat-badge {
+      background: #FFF7ED;
+      border: 1px solid var(--mustard);
+      color: var(--dark-brown);
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    .orders-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .orders-table th {
+      background: #FAF8F5;
+      padding: 12px 14px;
+      font-weight: 700;
+      color: var(--dark-brown);
+      border-bottom: 2px solid var(--border-warm);
+      white-space: nowrap;
+    }
+
+    .orders-table td {
+      padding: 14px;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--dark-brown);
+      vertical-align: middle;
+    }
+
+    .orders-table tr:hover {
+      background: #FFFDF9;
+    }
+
+    .order-total-cell {
+      font-weight: 800;
+      color: var(--terracotta);
+      white-space: nowrap;
+    }
+
+    .order-items-cell {
+      color: var(--dark-brown-muted);
+      font-size: 13px;
+      max-width: 320px;
+    }
+
+    .empty-orders-msg {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--dark-brown-muted);
+      font-style: italic;
+    }
+
+    .timestamp-badge {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 12px;
+      color: var(--dark-brown-muted);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header with Warm Modern Canteen Theme -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="header-brand">
+        <span class="header-logo">📜</span>
+        <h1>Order History</h1>
+      </div>
+      <div class="header-actions">
+        <!-- Link to main ordering page -->
+        <a href="index.html" class="history-nav-btn">← Back to Menu</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main History Content -->
+  <main class="history-container">
+    <div class="history-card">
+      <div class="history-top-bar">
+        <h2 class="section-title">Past Canteen Orders (orders.txt)</h2>
+        <div class="history-stats">
+          <input type="text" id="history-search" placeholder="🔍 Search name or phone..."
+            style="padding: 6px 12px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-pill); font-size: 13px; outline: none; background: #FFFDF9;">
+          <button type="button" id="export-csv-btn" class="stat-badge"
+            style="cursor: pointer; background: var(--card-bg); transition: all 0.2s;"
+            title="Download orders as CSV file">📥 Export CSV</button>
+          <span class="stat-badge" id="total-orders-count">Total Orders: 0</span>
+          <span class="stat-badge" id="total-revenue-sum">Total Revenue: Rs. 0.00</span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date &amp; Time</th>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Items Ordered</th>
+              <th>Total Amount</th>
+            </tr>
+          </thead>
+          <tbody id="orders-tbody">
+            <tr>
+              <td colspan="6" class="empty-orders-msg">Loading past orders from server...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let allOrders = [];
+
+    // Fetch past orders from GET /api/orders on page load
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchOrders();
+
+      // Search filter
+      const searchInput = document.getElementById("history-search");
+      if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+          const q = e.target.value.toLowerCase().trim();
+          const filtered = allOrders.filter((ord) => {
+            return (
+              (ord.name && ord.name.toLowerCase().includes(q)) ||
+              (ord.phone && ord.phone.includes(q)) ||
+              (ord.items && ord.items.toLowerCase().includes(q))
+            );
+          });
+          renderTable(filtered);
+        });
+      }
+
+      // Export CSV
+      const exportBtn = document.getElementById("export-csv-btn");
+      if (exportBtn) {
+        exportBtn.addEventListener("click", exportToCSV);
+      }
+    });
+
+    function fetchOrders() {
+      const tbody = document.getElementById("orders-tbody");
+
+      fetch("/api/orders")
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to load orders from server");
+          return res.json();
+        })
+        .then((orders) => {
+          allOrders = orders || [];
+          renderTable(allOrders);
+        })
+        .catch((err) => {
+          tbody.innerHTML = `<tr><td colspan="6" class="empty-orders-msg" style="color: #B85042;">Error: ${err.message}</td></tr>`;
+        });
+    }
+
+    function renderTable(orders) {
+      const tbody = document.getElementById("orders-tbody");
+      const countEl = document.getElementById("total-orders-count");
+      const revEl = document.getElementById("total-revenue-sum");
+
+      if (!orders || orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-orders-msg">No past orders match your search.</td></tr>';
+        countEl.textContent = "Orders: 0";
+        revEl.textContent = "Revenue: Rs. 0.00";
+        return;
+      }
+
+      let totalRev = 0;
+      const reversed = orders.slice().reverse();
+
+      tbody.innerHTML = reversed.map((ord, idx) => {
+        const amount = parseFloat(ord.total) || 0;
+        totalRev += amount;
+        return `
+          <tr>
+            <td><strong>${orders.length - idx}</strong></td>
+            <td><span class="timestamp-badge">${escapeHtml(ord.timestamp)}</span></td>
+            <td><strong>${escapeHtml(ord.name)}</strong></td>
+            <td>${escapeHtml(ord.phone)}</td>
+            <td class="order-items-cell">${escapeHtml(ord.items)}</td>
+            <td class="order-total-cell">Rs. ${amount.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join("");
+
+      countEl.textContent = `Total Orders: ${orders.length}`;
+      revEl.textContent = `Total Revenue: Rs. ${totalRev.toFixed(2)}`;
+    }
+
+    function exportToCSV() {
+      if (!allOrders || allOrders.length === 0) {
+        alert("No orders to export!");
+        return;
+      }
+
+      const headers = ["ID", "Timestamp", "Customer Name", "Phone", "Items Ordered", "Grand Total (Rs.)"];
+      const rows = allOrders.map((ord, idx) => [
+        idx + 1,
+        `"${(ord.timestamp || "").replace(/"/g, '""')}"`,
+        `"${(ord.name || "").replace(/"/g, '""')}"`,
+        `"${(ord.phone || "").replace(/"/g, '""')}"`,
+        `"${(ord.items || "").replace(/"/g, '""')}"`,
+        (parseFloat(ord.total) || 0).toFixed(2)
+      ]);
+
+      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "canteen_orders_" + new Date().toISOString().slice(0, 10) + ".csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+
+</html>

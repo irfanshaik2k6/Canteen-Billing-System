@@ -1,0 +1,3 @@
+{"timestamp":"07-11-2026 01:15:00","name":"Rahul Sharma","phone":"9876543210","items":"Tea x2, Samosa x3, Chicken Biryani x1","total":233.00}
+{"timestamp":"07-11-2026 01:15:05","name":"Anita","phone":"9812345678","items":"Veg Meals x3","total":189.00}
+{"timestamp":"07-11-2026 01:17:53","name":"hano","phone":"1234567890","items":"Fruit Juice x1","total":40.00}
