@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Canteen Ordering and Billing System</title>
+  <title>Billing POS - Canteen Billing System</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#B85042">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
 </head>
 <body>
-  <!-- Header with Warm Modern Canteen Theme -->
+  <!-- Header with Warm Modern Canteen Theme and Dynamic Navigation -->
   <header class="app-header">
     <div class="header-content">
       <div class="header-brand">
         <span class="header-logo">🍽️</span>
-        <h1>Canteen Ordering and Billing System</h1>
+        <h1 id="app-canteen-name">Canteen Billing System</h1>
       </div>
       <div class="header-actions">
-        <!-- Direct link to Order History page -->
-        <a href="history.html" class="history-nav-btn" style="text-decoration: none;">📜 Order History</a>
         <span class="header-badge">Fast &amp; Fresh</span>
       </div>
     </div>
@@ -35,13 +36,9 @@
           </div>
         </div>
         
-        <!-- Category Filter Tabs: All, Beverage, Snack, Meal, Special Meal -->
+        <!-- Category Filter Tabs: Populated dynamically from /api/categories -->
         <div class="category-tabs" id="category-tabs">
           <button type="button" class="tab-btn active" data-category="all">🍽️ All</button>
-          <button type="button" class="tab-btn" data-category="beverage">☕ Beverage</button>
-          <button type="button" class="tab-btn" data-category="snack">🥟 Snack</button>
-          <button type="button" class="tab-btn" data-category="meal">🍛 Meal</button>
-          <button type="button" class="tab-btn" data-category="special meal">🍗 Special Meal</button>
         </div>
       </div>
 
@@ -55,6 +52,7 @@
     <aside class="cart-section">
       <div class="cart-header">
         <h2 class="cart-title">🛒 Order Cart</h2>
+        <button type="button" id="clear-cart-btn" style="background: none; border: none; font-size: 12px; color: var(--terracotta); cursor: pointer; font-weight: 700;">Clear All</button>
       </div>
       
       <!-- Cart Items List Container -->
@@ -62,28 +60,61 @@
         <p class="cart-empty-text">Cart is empty</p>
       </div>
 
-      <!-- Estimated Cart Summary -->
+      <!-- Live Cart Pricing Summary -->
       <div id="cart-summary" class="cart-summary" style="display: none;">
         <div class="summary-row">
           <span>Items Ordered:</span>
           <span id="summary-items-count">0</span>
         </div>
+        <div class="summary-row">
+          <span>Subtotal:</span>
+          <span id="summary-subtotal">Rs. 0.00</span>
+        </div>
+        <div class="summary-row">
+          <span>Tax (<span id="summary-tax-rate">5</span>%):</span>
+          <span id="summary-tax-amount">Rs. 0.00</span>
+        </div>
+        <div class="summary-row" style="align-items: center;">
+          <label for="summary-discount-input" style="font-size: 13px;">Discount (Rs.):</label>
+          <input type="number" id="summary-discount-input" min="0" step="1" value="0"
+                 style="width: 80px; padding: 4px 8px; text-align: right; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; color: var(--dark-brown);">
+        </div>
         <div class="summary-row total-row">
-          <span>Rough Estimate:</span>
-          <span id="summary-total-price">Rs. 0.00 (estimated)</span>
+          <span>Grand Total:</span>
+          <span id="summary-total-price">Rs. 0.00</span>
         </div>
       </div>
 
-      <!-- Customer Details Form -->
+      <!-- Customer Details and Payment Method Form -->
       <form id="customer-form" class="customer-form" onsubmit="return false;">
-        <h3 class="form-title">Customer Details</h3>
+        <h3 class="form-title">Billing &amp; Customer Details</h3>
+        
         <div class="form-group">
-          <label for="customer-name">Full Name</label>
+          <label for="customer-name">Customer Name</label>
           <input type="text" id="customer-name" placeholder="e.g. Rahul Sharma" autocomplete="name" required>
         </div>
+        
         <div class="form-group">
           <label for="customer-phone">Phone Number (10 digits)</label>
           <input type="tel" id="customer-phone" placeholder="e.g. 9876543210" maxlength="10" autocomplete="tel" required>
+        </div>
+
+        <div class="form-group">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Payment Method</label>
+          <div class="payment-methods-grid">
+            <label class="payment-method-chip selected">
+              <input type="radio" name="payment_method" value="Cash" checked>
+              💵 Cash
+            </label>
+            <label class="payment-method-chip">
+              <input type="radio" name="payment_method" value="UPI">
+              📱 UPI
+            </label>
+            <label class="payment-method-chip">
+              <input type="radio" name="payment_method" value="Card">
+              💳 Card
+            </label>
+          </div>
         </div>
 
         <!-- Validation Error Message Banner -->
@@ -95,7 +126,7 @@
     </aside>
   </main>
 
-  <!-- Receipt Modal Popup -->
+  <!-- Official Receipt Modal Popup -->
   <div id="receipt-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
@@ -106,7 +137,7 @@
       <!-- Clean Receipt Paper for On-Screen View and Print -->
       <div class="receipt-paper" id="receipt-paper">
         <div class="receipt-header">
-          <h3>CANTEEN RECEIPT</h3>
+          <h3 id="receipt-canteen-name">CANTEEN RECEIPT</h3>
           <p class="receipt-subtitle">Delicious Food, Made Fresh</p>
         </div>
         
@@ -122,8 +153,8 @@
           <thead>
             <tr>
               <th>Item</th>
-              <th>Qty</th>
-              <th>Amount</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Amount</th>
             </tr>
           </thead>
           <tbody id="receipt-items-body">
@@ -133,38 +164,34 @@
 
         <div class="receipt-divider">-----------------------------------------</div>
 
+        <div class="receipt-summary-breakdown" id="receipt-summary-breakdown" style="font-size: 13px; margin: 8px 0;">
+          <!-- Subtotal, Tax, Discount -->
+        </div>
+
         <div class="receipt-total-row">
           <span>Grand Total:</span>
           <span id="receipt-grand-total">Rs. 0.00</span>
         </div>
 
         <div class="receipt-divider">=========================================</div>
-        <p class="receipt-footer">Thank you for visiting! Please visit again.</p>
+        <p class="receipt-footer">Thank you for dining with us! Please visit again.</p>
       </div>
 
       <div class="modal-footer">
-        <button type="button" id="print-bill-btn" class="print-btn">Print Bill</button>
-        <button type="button" id="new-order-btn" class="new-order-btn">New Order</button>
+        <button type="button" id="print-bill-btn" class="print-btn">🖨️ Print Bill</button>
+        <button type="button" id="new-order-btn" class="new-order-btn">➕ New Order</button>
       </div>
     </div>
   </div>
 
-  <!-- Order History Modal Popup -->
-  <div id="history-modal" class="modal-overlay" style="display: none;">
-    <div class="modal-content history-modal-content">
-      <div class="modal-header">
-        <h2>📜 Past Orders Log (bills.txt)</h2>
-        <button type="button" class="close-btn" id="history-close-btn" title="Close">&times;</button>
-      </div>
-      <div class="history-body">
-        <pre id="history-log" class="history-log">Loading order history...</pre>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="print-btn" id="history-dismiss-btn">Close</button>
-      </div>
-    </div>
-  </div>
-
+  <script src="auth-common.js"></script>
   <script src="script.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>

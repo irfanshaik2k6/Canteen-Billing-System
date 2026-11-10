@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Canteen Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#B85042">
+</head>
+<body>
+  <header class="app-header"></header>
+
+  <main class="admin-container" style="max-width: 800px;">
+    <!-- General Settings Card -->
+    <div class="admin-card">
+      <h2 class="section-title" style="margin-bottom: 6px;">⚙️ Canteen Configuration</h2>
+      <p style="font-size: 13px; color: var(--dark-brown-muted); margin-bottom: 24px;">
+        Configure your canteen name, standard tax percentage, and default checkout settings.
+      </p>
+
+      <div id="settings-feedback" style="display: none; padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 20px; font-size: 13px; font-weight: 600;"></div>
+
+      <form id="settings-form" onsubmit="return false;">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">Canteen / Organization Name</label>
+          <input type="text" id="setting-canteen-name" placeholder="Campus Canteen" required
+                 style="width: 100%; padding: 11px 14px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 14px;">
+          <span style="font-size: 11px; color: var(--dark-brown-muted);">Appears on all printed receipts and web headers.</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">Standard Tax Rate (%)</label>
+            <input type="number" step="0.1" min="0" max="100" id="setting-tax-percent" placeholder="5" required
+                   style="width: 100%; padding: 11px 14px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 14px;">
+            <span style="font-size: 11px; color: var(--dark-brown-muted);">Calculated automatically on checkout.</span>
+          </div>
+
+          <div class="form-group">
+            <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">Default Discount (Rs.)</label>
+            <input type="number" step="1" min="0" id="setting-default-discount" placeholder="0" required
+                   style="width: 100%; padding: 11px 14px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 14px;">
+            <span style="font-size: 11px; color: var(--dark-brown-muted);">Applied automatically to new orders (0 if none).</span>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 24px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px;">Currency Symbol</label>
+          <input type="text" id="setting-currency" placeholder="Rs." required
+                 style="width: 120px; padding: 11px 14px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 14px;">
+        </div>
+
+        <button type="submit" id="save-settings-btn" class="btn-primary" style="padding: 12px 24px;">
+          💾 Save Settings
+        </button>
+      </form>
+    </div>
+
+    <!-- Database Backup Card -->
+    <div class="admin-card">
+      <h2 class="section-title" style="margin-bottom: 6px;">💾 Database Backup &amp; Export</h2>
+      <p style="font-size: 13px; color: var(--dark-brown-muted); margin-bottom: 16px;">
+        Export and download a full snapshot of the SQLite database (<code>/backend/canteen.db</code>) including all users, menu items, prices, and past sales orders.
+      </p>
+      <div style="background: #FFFDF9; border: 1.5px dashed var(--mustard); border-radius: var(--radius-md); padding: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <div style="font-weight: 700; font-size: 14px; color: var(--dark-brown);">SQLite Database File</div>
+          <div style="font-size: 12px; color: var(--dark-brown-muted);">Self-contained, zero-configuration local database.</div>
+        </div>
+        <button type="button" id="download-backup-btn" class="btn-primary" style="background: #2E7D32;">
+          📥 Download Database Backup (.db)
+        </button>
+      </div>
+    </div>
+
+    <!-- Security: Change Admin Password -->
+    <div class="admin-card">
+      <h2 class="section-title" style="margin-bottom: 6px;">🔒 Change Your Password</h2>
+      <p style="font-size: 13px; color: var(--dark-brown-muted); margin-bottom: 20px;">
+        Update your personal account credentials.
+      </p>
+
+      <div id="pwd-feedback" style="display: none; padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; font-weight: 600;"></div>
+
+      <form id="change-pwd-form" onsubmit="return false;" style="max-width: 400px;">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Current Password</label>
+          <input type="password" id="cur-pwd" required
+                 style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm);">
+        </div>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">New Password (min 6 chars)</label>
+          <input type="password" id="new-pwd" required
+                 style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm);">
+        </div>
+        <div class="form-group" style="margin-bottom: 20px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Confirm New Password</label>
+          <input type="password" id="confirm-pwd" required
+                 style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm);">
+        </div>
+        <button type="submit" id="submit-pwd-btn" class="btn-secondary">
+          Update Password
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <script src="auth-common.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (!Auth.protectPage({ adminOnly: true, redirectUrl: 'login.html' })) return;
+      Auth.renderHeader('settings');
+
+      await loadSettings();
+      initEvents();
+    });
+
+    async function loadSettings() {
+      try {
+        const res = await Auth.fetch('/api/settings');
+        if (res.ok) {
+          const s = await res.json();
+          document.getElementById('setting-canteen-name').value = s.canteen_name || "Campus Canteen";
+          document.getElementById('setting-tax-percent').value = s.tax_percent || "5";
+          document.getElementById('setting-default-discount').value = s.default_discount || "0";
+          document.getElementById('setting-currency').value = s.currency || "Rs.";
+        }
+      } catch (err) {
+        showFeedback('settings-feedback', "Failed to load settings: " + err.message, true);
+      }
+    }
+
+    function initEvents() {
+      // Save settings
+      document.getElementById('settings-form').addEventListener('submit', async () => {
+        const canteen_name = document.getElementById('setting-canteen-name').value.trim();
+        const tax_percent = document.getElementById('setting-tax-percent').value.trim();
+        const default_discount = document.getElementById('setting-default-discount').value.trim();
+        const currency = document.getElementById('setting-currency').value.trim();
+
+        const btn = document.getElementById('save-settings-btn');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+          const res = await Auth.fetch('/api/settings', {
+            method: 'PUT',
+            body: { canteen_name, tax_percent, default_discount, currency }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to save settings.");
+
+          showFeedback('settings-feedback', "✓ Settings successfully updated and applied!");
+          Auth.loadCanteenName();
+        } catch (err) {
+          showFeedback('settings-feedback', err.message, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '💾 Save Settings';
+        }
+      });
+
+      // Database backup download
+      document.getElementById('download-backup-btn').addEventListener('click', async () => {
+        const token = Auth.getToken();
+        try {
+          const res = await fetch('/api/backup', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Backup failed.");
+          }
+
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `canteen_backup_${new Date().toISOString().slice(0, 10)}.db`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        } catch (err) {
+          alert("Backup error: " + err.message);
+        }
+      });
+
+      // Change password
+      document.getElementById('change-pwd-form').addEventListener('submit', async () => {
+        const old_password = document.getElementById('cur-pwd').value;
+        const new_password = document.getElementById('new-pwd').value;
+        const confirm_password = document.getElementById('confirm-pwd').value;
+
+        if (new_password.length < 6) {
+          showFeedback('pwd-feedback', "New password must be at least 6 characters.", true);
+          return;
+        }
+
+        if (new_password !== confirm_password) {
+          showFeedback('pwd-feedback', "New password and confirmation do not match.", true);
+          return;
+        }
+
+        const btn = document.getElementById('submit-pwd-btn');
+        btn.disabled = true;
+
+        try {
+          const res = await Auth.fetch('/api/auth/change-password', {
+            method: 'POST',
+            body: { old_password, new_password }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to change password.");
+
+          showFeedback('pwd-feedback', "✓ Password updated successfully!");
+          document.getElementById('cur-pwd').value = '';
+          document.getElementById('new-pwd').value = '';
+          document.getElementById('confirm-pwd').value = '';
+        } catch (err) {
+          showFeedback('pwd-feedback', err.message, true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    function showFeedback(elementId, msg, isError = false) {
+      const banner = document.getElementById(elementId);
+      banner.textContent = msg;
+      banner.style.display = 'block';
+      banner.style.background = isError ? '#FFEBEE' : '#E8F5E9';
+      banner.style.color = isError ? '#C62828' : '#2E7D32';
+      banner.style.border = `1px solid ${isError ? '#FFCDD2' : '#A5D6A7'}`;
+
+      setTimeout(() => {
+        banner.style.display = 'none';
+      }, 5000);
+    }
+  </script>
+</body>
+</html>
+

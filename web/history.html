@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order History - Canteen Billing System</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#B85042">
   <style>
-    /* Specific styles for history table */
     .history-container {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 28px auto;
       padding: 0 24px;
     }
@@ -22,18 +22,41 @@
       box-shadow: var(--shadow-subtle);
     }
 
-    .history-top-bar {
+    .history-filter-bar {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
       flex-wrap: wrap;
       gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      background: #FAF8F5;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-light);
+    }
+
+    .filter-input-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .filter-input-group input,
+    .filter-input-group select {
+      padding: 8px 12px;
+      border: 1.5px solid var(--border-warm);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      background: #FFFFFF;
+      outline: none;
     }
 
     .history-stats {
       display: flex;
-      gap: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-left: auto;
     }
 
     .stat-badge {
@@ -44,6 +67,9 @@
       border-radius: var(--radius-pill);
       font-size: 13px;
       font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .table-responsive {
@@ -53,7 +79,7 @@
     .orders-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
+      font-size: 13px;
       text-align: left;
     }
 
@@ -67,7 +93,7 @@
     }
 
     .orders-table td {
-      padding: 14px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border-light);
       color: var(--dark-brown);
       vertical-align: middle;
@@ -85,8 +111,8 @@
 
     .order-items-cell {
       color: var(--dark-brown-muted);
-      font-size: 13px;
-      max-width: 320px;
+      font-size: 12px;
+      max-width: 280px;
     }
 
     .empty-orders-msg {
@@ -96,61 +122,87 @@
       font-style: italic;
     }
 
-    .timestamp-badge {
-      font-family: "Courier New", Courier, monospace;
-      font-size: 12px;
-      color: var(--dark-brown-muted);
+    .btn-reprint {
+      background: #FFF7ED;
+      color: var(--dark-brown);
+      border: 1px solid var(--mustard);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
       white-space: nowrap;
+    }
+
+    .btn-reprint:hover {
+      background: var(--mustard);
+      color: #FFFFFF;
     }
   </style>
 </head>
-
 <body>
-  <!-- Header with Warm Modern Canteen Theme -->
-  <header class="app-header">
-    <div class="header-content">
-      <div class="header-brand">
-        <span class="header-logo">📜</span>
-        <h1>Order History</h1>
-      </div>
-      <div class="header-actions">
-        <!-- Link to main ordering page -->
-        <a href="index.html" class="history-nav-btn">← Back to Menu</a>
-      </div>
-    </div>
-  </header>
+  <!-- Header -->
+  <header class="app-header"></header>
 
-  <!-- Main History Content -->
+  <!-- Main Content -->
   <main class="history-container">
     <div class="history-card">
-      <div class="history-top-bar">
-        <h2 class="section-title">Past Canteen Orders (orders.txt)</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <h2 class="section-title">📜 Order &amp; Billing History</h2>
         <div class="history-stats">
-          <input type="text" id="history-search" placeholder="🔍 Search name or phone..."
-            style="padding: 6px 12px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-pill); font-size: 13px; outline: none; background: #FFFDF9;">
-          <button type="button" id="export-csv-btn" class="stat-badge"
-            style="cursor: pointer; background: var(--card-bg); transition: all 0.2s;"
-            title="Download orders as CSV file">📥 Export CSV</button>
-          <span class="stat-badge" id="total-orders-count">Total Orders: 0</span>
-          <span class="stat-badge" id="total-revenue-sum">Total Revenue: Rs. 0.00</span>
+          <button type="button" id="export-csv-btn" class="stat-badge" style="cursor: pointer; background: var(--card-bg);" title="Download as CSV">
+            📥 Export CSV
+          </button>
+          <span class="stat-badge" id="total-orders-count">Orders: 0</span>
+          <span class="stat-badge" id="total-revenue-sum">Revenue: Rs. 0.00</span>
         </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="history-filter-bar">
+        <div class="filter-input-group" style="flex: 1; min-width: 220px;">
+          <input type="text" id="filter-search" placeholder="🔍 Search bill #, customer name, phone..." style="width: 100%;">
+        </div>
+        <div class="filter-input-group">
+          <span>From:</span>
+          <input type="date" id="filter-from">
+        </div>
+        <div class="filter-input-group">
+          <span>To:</span>
+          <input type="date" id="filter-to">
+        </div>
+        <div class="filter-input-group">
+          <span>Payment:</span>
+          <select id="filter-payment">
+            <option value="">All Methods</option>
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Card">Card</option>
+          </select>
+        </div>
+        <button type="button" id="apply-filters-btn" class="btn-primary" style="padding: 8px 16px; font-size: 13px;">Filter</button>
+        <button type="button" id="reset-filters-btn" class="btn-secondary" style="padding: 7px 14px; font-size: 13px;">Reset</button>
       </div>
 
       <div class="table-responsive">
         <table class="orders-table">
           <thead>
             <tr>
-              <th>#</th>
+              <th>Bill #</th>
               <th>Date &amp; Time</th>
               <th>Customer</th>
               <th>Phone</th>
+              <th>Cashier</th>
               <th>Items Ordered</th>
-              <th>Total Amount</th>
+              <th>Method</th>
+              <th>Total</th>
+              <th style="text-align: center;">Action</th>
             </tr>
           </thead>
           <tbody id="orders-tbody">
             <tr>
-              <td colspan="6" class="empty-orders-msg">Loading past orders from server...</td>
+              <td colspan="9" class="empty-orders-msg">Loading past orders from server...</td>
             </tr>
           </tbody>
         </table>
@@ -158,51 +210,106 @@
     </div>
   </main>
 
+  <!-- Official Receipt Modal Popup for Reprinting -->
+  <div id="receipt-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🧾 Receipt Reprint</h2>
+        <button type="button" class="close-btn" id="modal-close-btn" title="Close">&times;</button>
+      </div>
+
+      <div class="receipt-paper" id="receipt-paper">
+        <div class="receipt-header">
+          <h3 id="receipt-canteen-name">CANTEEN RECEIPT</h3>
+          <p class="receipt-subtitle">Official Copy / Reprint</p>
+        </div>
+        <div class="receipt-divider">=========================================</div>
+        <div class="receipt-meta" id="receipt-meta"></div>
+        <div class="receipt-divider">-----------------------------------------</div>
+        <table class="receipt-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align: center;">Qty</th>
+              <th style="text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="receipt-items-body"></tbody>
+        </table>
+        <div class="receipt-divider">-----------------------------------------</div>
+        <div class="receipt-summary-breakdown" id="receipt-summary-breakdown" style="font-size: 13px; margin: 8px 0;"></div>
+        <div class="receipt-total-row">
+          <span>Grand Total:</span>
+          <span id="receipt-grand-total">Rs. 0.00</span>
+        </div>
+        <div class="receipt-divider">=========================================</div>
+        <p class="receipt-footer">Thank you for dining with us!</p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="print-bill-btn" class="print-btn">🖨️ Print Bill</button>
+        <button type="button" class="new-order-btn" onclick="document.getElementById('receipt-modal').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="auth-common.js"></script>
   <script>
     let allOrders = [];
 
-    // Fetch past orders from GET /api/orders on page load
     document.addEventListener("DOMContentLoaded", () => {
+      if (!Auth.protectPage({ redirectUrl: 'login.html' })) return;
+      Auth.renderHeader('history');
+
       fetchOrders();
 
-      // Search filter
-      const searchInput = document.getElementById("history-search");
-      if (searchInput) {
-        searchInput.addEventListener("input", (e) => {
-          const q = e.target.value.toLowerCase().trim();
-          const filtered = allOrders.filter((ord) => {
-            return (
-              (ord.name && ord.name.toLowerCase().includes(q)) ||
-              (ord.phone && ord.phone.includes(q)) ||
-              (ord.items && ord.items.toLowerCase().includes(q))
-            );
-          });
-          renderTable(filtered);
-        });
-      }
+      document.getElementById('apply-filters-btn').addEventListener('click', fetchOrders);
+      document.getElementById('reset-filters-btn').addEventListener('click', () => {
+        document.getElementById('filter-search').value = '';
+        document.getElementById('filter-from').value = '';
+        document.getElementById('filter-to').value = '';
+        document.getElementById('filter-payment').value = '';
+        fetchOrders();
+      });
 
-      // Export CSV
-      const exportBtn = document.getElementById("export-csv-btn");
-      if (exportBtn) {
-        exportBtn.addEventListener("click", exportToCSV);
-      }
+      document.getElementById('filter-search').addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') fetchOrders();
+      });
+
+      document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
+
+      // Modal close & print
+      document.getElementById('modal-close-btn').addEventListener('click', () => {
+        document.getElementById('receipt-modal').style.display = 'none';
+      });
+      document.getElementById('print-bill-btn').addEventListener('click', () => {
+        window.print();
+      });
     });
 
-    function fetchOrders() {
+    async function fetchOrders() {
       const tbody = document.getElementById("orders-tbody");
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-orders-msg">Fetching orders...</td></tr>';
 
-      fetch("/api/orders")
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to load orders from server");
-          return res.json();
-        })
-        .then((orders) => {
-          allOrders = orders || [];
-          renderTable(allOrders);
-        })
-        .catch((err) => {
-          tbody.innerHTML = `<tr><td colspan="6" class="empty-orders-msg" style="color: #B85042;">Error: ${err.message}</td></tr>`;
-        });
+      const q = document.getElementById('filter-search').value.trim();
+      const dateFrom = document.getElementById('filter-from').value;
+      const dateTo = document.getElementById('filter-to').value;
+      const payment = document.getElementById('filter-payment').value;
+
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      if (payment) params.set('payment_method', payment);
+
+      try {
+        const res = await Auth.fetch(`/api/orders?${params.toString()}`);
+        if (!res.ok) throw new Error("Failed to load orders");
+        allOrders = await res.json();
+        renderTable(allOrders);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-orders-msg" style="color: #B85042;">Error: ${err.message}</td></tr>`;
+      }
     }
 
     function renderTable(orders) {
@@ -211,26 +318,32 @@
       const revEl = document.getElementById("total-revenue-sum");
 
       if (!orders || orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-orders-msg">No past orders match your search.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-orders-msg">No orders match your filter criteria.</td></tr>';
         countEl.textContent = "Orders: 0";
         revEl.textContent = "Revenue: Rs. 0.00";
         return;
       }
 
       let totalRev = 0;
-      const reversed = orders.slice().reverse();
 
-      tbody.innerHTML = reversed.map((ord, idx) => {
+      tbody.innerHTML = orders.map((ord) => {
         const amount = parseFloat(ord.total) || 0;
         totalRev += amount;
+        const dateStr = new Date(ord.created_at).toLocaleString();
+
         return `
           <tr>
-            <td><strong>${orders.length - idx}</strong></td>
-            <td><span class="timestamp-badge">${escapeHtml(ord.timestamp)}</span></td>
-            <td><strong>${escapeHtml(ord.name)}</strong></td>
-            <td>${escapeHtml(ord.phone)}</td>
-            <td class="order-items-cell">${escapeHtml(ord.items)}</td>
+            <td><strong>${escapeHtml(ord.bill_no)}</strong></td>
+            <td><span class="timestamp-badge" style="font-size: 11px;">${escapeHtml(dateStr)}</span></td>
+            <td><strong>${escapeHtml(ord.customer_name || "Walk-in")}</strong></td>
+            <td>${escapeHtml(ord.customer_phone || "-")}</td>
+            <td>${escapeHtml(ord.cashier_name || "Staff")}</td>
+            <td class="order-items-cell" title="${escapeHtml(ord.items_summary)}">${escapeHtml(ord.items_summary || "-")}</td>
+            <td><span class="status-pill status-active" style="background:#FFF3E0; border-color:#FFE0B2; color:#E65100;">${escapeHtml(ord.payment_method)}</span></td>
             <td class="order-total-cell">Rs. ${amount.toFixed(2)}</td>
+            <td style="text-align: center;">
+              <button type="button" class="btn-reprint" onclick="reprintBill(${ord.id})">🖨️ Reprint</button>
+            </td>
           </tr>
         `;
       }).join("");
@@ -239,19 +352,82 @@
       revEl.textContent = `Total Revenue: Rs. ${totalRev.toFixed(2)}`;
     }
 
+    async function reprintBill(orderId) {
+      try {
+        const res = await Auth.fetch(`/api/orders/${orderId}`);
+        if (!res.ok) throw new Error("Could not fetch bill details.");
+        const bill = await res.json();
+
+        const canteenTitle = document.getElementById("receipt-canteen-name");
+        const metaEl = document.getElementById("receipt-meta");
+        const itemsBodyEl = document.getElementById("receipt-items-body");
+        const breakdownEl = document.getElementById("receipt-summary-breakdown");
+        const totalEl = document.getElementById("receipt-grand-total");
+        const modal = document.getElementById("receipt-modal");
+
+        if (canteenTitle) canteenTitle.textContent = bill.canteen_name || "CANTEEN RECEIPT";
+        const dateStr = new Date(bill.created_at).toLocaleString();
+
+        metaEl.innerHTML = `
+          <div><strong>Bill No   :</strong> ${escapeHtml(bill.bill_no)}</div>
+          <div><strong>Date/Time :</strong> ${escapeHtml(dateStr)}</div>
+          <div><strong>Customer  :</strong> ${escapeHtml(bill.customer_name)} (${escapeHtml(bill.customer_phone || '-')})</div>
+          <div><strong>Cashier   :</strong> ${escapeHtml(bill.cashier_name || 'Staff')}</div>
+          <div><strong>Payment   :</strong> ${escapeHtml(bill.payment_method)}</div>
+        `;
+
+        itemsBodyEl.innerHTML = bill.items.map((it) => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(it.name)}</strong><br>
+              <span style="font-size: 11px; color: var(--dark-brown-muted);">${escapeHtml(it.category || '')}</span>
+            </td>
+            <td style="text-align: center;">${it.quantity} &times; Rs. ${parseFloat(it.price).toFixed(2)}</td>
+            <td style="text-align: right;">Rs. ${parseFloat(it.amount).toFixed(2)}</td>
+          </tr>
+        `).join("");
+
+        breakdownEl.innerHTML = `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Subtotal:</span>
+            <span>Rs. ${parseFloat(bill.subtotal).toFixed(2)}</span>
+          </div>
+          ${bill.discount > 0 ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px; color: #2E7D32;">
+            <span>Discount:</span>
+            <span>-Rs. ${parseFloat(bill.discount).toFixed(2)}</span>
+          </div>` : ''}
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Tax:</span>
+            <span>+Rs. ${parseFloat(bill.tax).toFixed(2)}</span>
+          </div>
+        `;
+
+        totalEl.textContent = `Rs. ${parseFloat(bill.total).toFixed(2)}`;
+        modal.style.display = "flex";
+      } catch (err) {
+        alert("Error loading receipt: " + err.message);
+      }
+    }
+
     function exportToCSV() {
       if (!allOrders || allOrders.length === 0) {
         alert("No orders to export!");
         return;
       }
 
-      const headers = ["ID", "Timestamp", "Customer Name", "Phone", "Items Ordered", "Grand Total (Rs.)"];
-      const rows = allOrders.map((ord, idx) => [
-        idx + 1,
-        `"${(ord.timestamp || "").replace(/"/g, '""')}"`,
-        `"${(ord.name || "").replace(/"/g, '""')}"`,
-        `"${(ord.phone || "").replace(/"/g, '""')}"`,
-        `"${(ord.items || "").replace(/"/g, '""')}"`,
+      const headers = ["Bill No", "Date Time", "Customer Name", "Phone", "Cashier", "Items Ordered", "Payment Method", "Subtotal", "Tax", "Discount", "Grand Total (Rs.)"];
+      const rows = allOrders.map((ord) => [
+        `"${ord.bill_no}"`,
+        `"${ord.created_at}"`,
+        `"${(ord.customer_name || '').replace(/"/g, '""')}"`,
+        `"${(ord.customer_phone || '').replace(/"/g, '""')}"`,
+        `"${(ord.cashier_name || '').replace(/"/g, '""')}"`,
+        `"${(ord.items_summary || '').replace(/"/g, '""')}"`,
+        `"${ord.payment_method}"`,
+        (parseFloat(ord.subtotal) || 0).toFixed(2),
+        (parseFloat(ord.tax) || 0).toFixed(2),
+        (parseFloat(ord.discount) || 0).toFixed(2),
         (parseFloat(ord.total) || 0).toFixed(2)
       ]);
 
@@ -259,22 +435,13 @@
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "canteen_orders_" + new Date().toISOString().slice(0, 10) + ".csv");
+      link.setAttribute("download", "canteen_bills_" + new Date().toISOString().slice(0, 10) + ".csv");
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
+    window.reprintBill = reprintBill;
   </script>
 </body>
-
 </html>

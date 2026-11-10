@@ -1,8 +1,15 @@
-// Application State
+// Full-Stack Canteen Billing Application State
 let menuItems = [];
-const cart = []; // In-memory cart array
+let categoriesList = [];
+const cart = []; // Array of { id, name, price, category, quantity, maxStock }
 let activeCategory = "all";
 let searchQuery = "";
+let currentSettings = {
+  canteen_name: "Campus Canteen",
+  tax_percent: 5,
+  default_discount: 0,
+  currency: "Rs."
+};
 
 // Item-to-Emoji mappings for modern canteen visual design
 const ITEM_EMOJIS = {
@@ -17,7 +24,6 @@ const ITEM_EMOJIS = {
   "Chicken Biryani": "🍗"
 };
 
-// Returns matching emoji icon or fallback
 function getItemEmoji(name, category) {
   if (ITEM_EMOJIS[name]) return ITEM_EMOJIS[name];
   const cat = (category || "").toLowerCase();
@@ -29,40 +35,93 @@ function getItemEmoji(name, category) {
 }
 
 // Initialize on page load
-document.addEventListener("DOMContentLoaded", () => {
-  fetchMenu();
+document.addEventListener("DOMContentLoaded", async () => {
+  // Protect page (requires login)
+  if (!Auth.protectPage({ redirectUrl: 'login.html' })) return;
+
+  // Render unified header navigation
+  Auth.renderHeader('billing');
+
+  // Load settings first, then categories and menu
+  await loadSettings();
+  await loadCategories();
+  await fetchMenu();
+
   renderCart();
   initCheckoutEvents();
-  initCategoryTabs();
-  initSearchAndHistory();
+  initSearch();
+  initPaymentChips();
+  initDiscountListener();
+
+  const clearBtn = document.getElementById("clear-cart-btn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      cart.length = 0;
+      renderCart();
+    });
+  }
 });
 
-// Fetches menu items from the Java backend API
-function fetchMenu() {
-  const menuContainer = document.getElementById("menu-container");
+// Load settings from backend
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    if (res.ok) {
+      const data = await res.json();
+      currentSettings.canteen_name = data.canteen_name || "Campus Canteen";
+      currentSettings.tax_percent = parseFloat(data.tax_percent) || 0;
+      currentSettings.default_discount = parseFloat(data.default_discount) || 0;
+      currentSettings.currency = data.currency || "Rs.";
 
-  fetch("/api/menu")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Unable to fetch menu items from server.");
+      const taxRateEl = document.getElementById("summary-tax-rate");
+      if (taxRateEl) taxRateEl.textContent = currentSettings.tax_percent;
+
+      const discountInput = document.getElementById("summary-discount-input");
+      if (discountInput && currentSettings.default_discount > 0) {
+        discountInput.value = currentSettings.default_discount;
       }
-      return response.json();
-    })
-    .then((items) => {
-      menuItems = items;
-      filterAndRenderMenu();
-    })
-    .catch((error) => {
-      menuContainer.innerHTML = `<p class="loading-state" style="color: #B85042;">Error loading menu: ${error.message}</p>`;
-    });
+    }
+  } catch (err) {
+    console.warn("Could not load settings:", err);
+  }
 }
 
-// Binds category filter tabs
-function initCategoryTabs() {
-  const tabButtons = document.querySelectorAll(".category-tabs .tab-btn");
-  tabButtons.forEach((btn) => {
+// Load categories dynamically
+async function loadCategories() {
+  try {
+    const res = await fetch('/api/categories');
+    if (res.ok) {
+      categoriesList = await res.json();
+      renderCategoryTabs();
+    }
+  } catch (err) {
+    console.warn("Could not load categories:", err);
+  }
+}
+
+function renderCategoryTabs() {
+  const tabsContainer = document.getElementById("category-tabs");
+  if (!tabsContainer) return;
+
+  let tabsHtml = `<button type="button" class="tab-btn ${activeCategory === 'all' ? 'active' : ''}" data-category="all">🍽️ All</button>`;
+
+  categoriesList.forEach((cat) => {
+    const catLower = cat.name.toLowerCase();
+    const isActive = activeCategory === catLower ? 'active' : '';
+    let emoji = "🍽️";
+    if (catLower.includes("beverage")) emoji = "☕";
+    else if (catLower.includes("snack")) emoji = "🥟";
+    else if (catLower.includes("special")) emoji = "🍗";
+    else if (catLower.includes("meal")) emoji = "🍛";
+
+    tabsHtml += `<button type="button" class="tab-btn ${isActive}" data-category="${escapeHtml(catLower)}">${emoji} ${escapeHtml(cat.name)}</button>`;
+  });
+
+  tabsContainer.innerHTML = tabsHtml;
+
+  tabsContainer.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      tabButtons.forEach((b) => b.classList.remove("active"));
+      tabsContainer.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeCategory = btn.getAttribute("data-category") || "all";
       filterAndRenderMenu();
@@ -70,21 +129,36 @@ function initCategoryTabs() {
   });
 }
 
-// Filters menu items based on active category tab and search query
+// Fetches menu items from backend API
+async function fetchMenu() {
+  const menuContainer = document.getElementById("menu-container");
+
+  try {
+    const res = await fetch("/api/items");
+    if (!res.ok) {
+      throw new Error("Unable to fetch menu items from server.");
+    }
+    menuItems = await res.json();
+    filterAndRenderMenu();
+  } catch (error) {
+    menuContainer.innerHTML = `<p class="loading-state" style="color: #B85042;">Error loading menu: ${error.message}</p>`;
+  }
+}
+
+// Filters menu items based on active category and search query
 function filterAndRenderMenu() {
   const filtered = menuItems.filter((item) => {
     const matchesCategory = activeCategory === "all" || 
-      item.category.trim().toLowerCase() === activeCategory.trim().toLowerCase();
+      (item.category && item.category.trim().toLowerCase() === activeCategory.trim().toLowerCase());
     const matchesSearch = !searchQuery || 
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      item.category.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
   renderMenu(filtered);
 }
 
-// Binds search box input and past orders history modal
-function initSearchAndHistory() {
+function initSearch() {
   const searchInput = document.getElementById("menu-search");
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
@@ -92,89 +166,98 @@ function initSearchAndHistory() {
       filterAndRenderMenu();
     });
   }
+}
 
-  const historyBtn = document.getElementById("history-nav-btn");
-  const historyModal = document.getElementById("history-modal");
-  const historyCloseBtn = document.getElementById("history-close-btn");
-  const historyDismissBtn = document.getElementById("history-dismiss-btn");
-  const historyLog = document.getElementById("history-log");
-
-  if (historyBtn && historyModal) {
-    historyBtn.addEventListener("click", () => {
-      historyModal.style.display = "flex";
-      historyLog.textContent = "Loading past orders from bills.txt...";
-
-      fetch("/api/history")
-        .then((res) => res.json())
-        .then((data) => {
-          historyLog.textContent = data.history || "No orders recorded in bills.txt yet.";
-        })
-        .catch((err) => {
-          historyLog.textContent = "Error loading history: " + err.message;
-        });
+function initPaymentChips() {
+  const chips = document.querySelectorAll(".payment-method-chip");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.remove("selected"));
+      chip.classList.add("selected");
     });
-  }
+  });
+}
 
-  if (historyCloseBtn && historyModal) {
-    historyCloseBtn.addEventListener("click", () => {
-      historyModal.style.display = "none";
-    });
-  }
-
-  if (historyDismissBtn && historyModal) {
-    historyDismissBtn.addEventListener("click", () => {
-      historyModal.style.display = "none";
+function initDiscountListener() {
+  const discountInput = document.getElementById("summary-discount-input");
+  if (discountInput) {
+    discountInput.addEventListener("input", () => {
+      renderCartSummary();
     });
   }
 }
 
-// Renders menu cards with rounded aesthetic, emoji bubbles, and Add buttons
+// Renders menu cards with live stock indicators and Sold Out badges
 function renderMenu(items) {
   const menuContainer = document.getElementById("menu-container");
   menuContainer.innerHTML = "";
 
   if (items.length === 0) {
-    menuContainer.innerHTML = '<p class="loading-state">No items found in this category.</p>';
+    menuContainer.innerHTML = '<p class="loading-state">No items found matching criteria.</p>';
     return;
   }
 
   items.forEach((item) => {
-    const categoryClass = item.category.toLowerCase().replace(/\s+/g, "-");
+    const categoryClass = (item.category || "").toLowerCase().replace(/\s+/g, "-");
     const emoji = getItemEmoji(item.name, item.category);
+    const isSoldOut = !item.is_available || item.stock <= 0;
+
+    let stockBadgeHtml = '';
+    if (isSoldOut) {
+      stockBadgeHtml = '<span class="stock-indicator sold-out-badge">⚠️ Sold Out</span>';
+    } else if (item.stock <= 5) {
+      stockBadgeHtml = `<span class="stock-indicator low-stock-badge">⚡ Only ${item.stock} left</span>`;
+    } else {
+      stockBadgeHtml = `<span class="stock-indicator in-stock-badge">✓ In Stock (${item.stock})</span>`;
+    }
 
     const card = document.createElement("div");
-    card.className = "menu-card";
+    card.className = `menu-card ${isSoldOut ? "sold-out" : ""}`;
     card.innerHTML = `
       <div>
         <div class="card-hero">
           <div class="item-icon-bubble" title="${escapeHtml(item.name)}">${emoji}</div>
-          <span class="category-badge ${categoryClass}">${escapeHtml(item.category)}</span>
+          <span class="category-badge ${categoryClass}">${escapeHtml(item.category || "General")}</span>
         </div>
         <h3 class="item-name">${escapeHtml(item.name)}</h3>
+        <div>${stockBadgeHtml}</div>
       </div>
       <div>
         <div class="item-price">
-          <span class="currency">Rs.</span> ${parseFloat(item.price).toFixed(2)}
+          <span class="currency">${currentSettings.currency}</span> ${parseFloat(item.price).toFixed(2)}
         </div>
-        <button type="button" class="add-btn" data-id="${item.id}">+ Add to Cart</button>
+        <button type="button" class="add-btn" data-id="${item.id}" ${isSoldOut ? 'disabled' : ''}>
+          ${isSoldOut ? 'Sold Out' : '+ Add to Cart'}
+        </button>
       </div>
     `;
 
-    card.querySelector(".add-btn").addEventListener("click", () => {
-      addToCart(item.id);
-    });
+    if (!isSoldOut) {
+      card.querySelector(".add-btn").addEventListener("click", () => {
+        addToCart(item.id);
+      });
+    }
 
     menuContainer.appendChild(card);
   });
 }
 
-// Puts an item into the cart array or increments its quantity
+// Add item to cart with stock validation
 function addToCart(itemId) {
   const menuItem = menuItems.find((m) => m.id === itemId);
   if (!menuItem) return;
 
+  if (!menuItem.is_available || menuItem.stock <= 0) {
+    showError(`"${menuItem.name}" is sold out!`);
+    return;
+  }
+
   const existingItem = cart.find((item) => item.id === itemId);
   if (existingItem) {
+    if (existingItem.quantity >= menuItem.stock) {
+      showError(`Cannot add more. Only ${menuItem.stock} of "${menuItem.name}" available in stock.`);
+      return;
+    }
     existingItem.quantity += 1;
   } else {
     cart.push({
@@ -182,7 +265,8 @@ function addToCart(itemId) {
       name: menuItem.name,
       price: menuItem.price,
       category: menuItem.category,
-      quantity: 1
+      quantity: 1,
+      maxStock: menuItem.stock
     });
   }
 
@@ -190,20 +274,27 @@ function addToCart(itemId) {
   renderCart();
 }
 
-// Updates item quantity via + or - buttons
 function updateQuantity(itemId, change) {
-  const item = cart.find((ci) => ci.id === itemId);
-  if (!item) return;
+  const cartItem = cart.find((ci) => ci.id === itemId);
+  if (!cartItem) return;
 
-  item.quantity += change;
-  if (item.quantity <= 0) {
+  const menuItem = menuItems.find((m) => m.id === itemId);
+  const maxStock = menuItem ? menuItem.stock : cartItem.maxStock;
+
+  if (change > 0 && cartItem.quantity >= maxStock) {
+    showError(`Maximum stock limit reached (${maxStock}) for "${cartItem.name}".`);
+    return;
+  }
+
+  cartItem.quantity += change;
+  if (cartItem.quantity <= 0) {
     removeFromCart(itemId);
   } else {
+    hideError();
     renderCart();
   }
 }
 
-// Removes an item completely from the cart array
 function removeFromCart(itemId) {
   const index = cart.findIndex((ci) => ci.id === itemId);
   if (index !== -1) {
@@ -212,12 +303,10 @@ function removeFromCart(itemId) {
   renderCart();
 }
 
-// Renders the cart list and rough estimated totals (no final backend pricing here)
+// Renders the cart items and calls renderCartSummary()
 function renderCart() {
   const cartContainer = document.getElementById("cart-container");
   const cartSummary = document.getElementById("cart-summary");
-  const itemsCountEl = document.getElementById("summary-items-count");
-  const totalPriceEl = document.getElementById("summary-total-price");
 
   if (cart.length === 0) {
     cartContainer.innerHTML = '<p class="cart-empty-text">Cart is empty</p>';
@@ -227,13 +316,8 @@ function renderCart() {
 
   if (cartSummary) cartSummary.style.display = "block";
 
-  let totalItemsCount = 0;
-  let roughEstimate = 0;
-
   cartContainer.innerHTML = cart.map((item) => {
-    totalItemsCount += item.quantity;
     const itemSubtotal = item.price * item.quantity;
-    roughEstimate += itemSubtotal;
     const emoji = getItemEmoji(item.name, item.category);
 
     return `
@@ -241,7 +325,7 @@ function renderCart() {
         <div class="cart-item-info">
           <div class="cart-item-name">${emoji} ${escapeHtml(item.name)}</div>
           <div class="cart-item-price">
-            Rs. ${item.price.toFixed(2)} &times; ${item.quantity} = Rs. ${itemSubtotal.toFixed(2)} (estimated)
+            ${currentSettings.currency} ${item.price.toFixed(2)} &times; ${item.quantity} = ${currentSettings.currency} ${itemSubtotal.toFixed(2)}
           </div>
         </div>
         <div class="cart-qty-controls">
@@ -254,11 +338,40 @@ function renderCart() {
     `;
   }).join("");
 
-  if (itemsCountEl) itemsCountEl.textContent = totalItemsCount;
-  if (totalPriceEl) totalPriceEl.textContent = `Rs. ${roughEstimate.toFixed(2)} (estimated)`;
+  renderCartSummary();
 }
 
-// Binds checkout button, modal controls, Print Bill, and New Order buttons
+// Calculates live subtotal, tax, discount, and grand total
+function renderCartSummary() {
+  const itemsCountEl = document.getElementById("summary-items-count");
+  const subtotalEl = document.getElementById("summary-subtotal");
+  const taxAmountEl = document.getElementById("summary-tax-amount");
+  const totalPriceEl = document.getElementById("summary-total-price");
+  const discountInput = document.getElementById("summary-discount-input");
+
+  let totalItemsCount = 0;
+  let subtotal = 0;
+
+  cart.forEach((it) => {
+    totalItemsCount += it.quantity;
+    subtotal += it.price * it.quantity;
+  });
+
+  let discount = parseFloat(discountInput ? discountInput.value : 0) || 0;
+  if (discount < 0) discount = 0;
+  if (discount > subtotal) discount = subtotal;
+
+  const taxableAmount = Math.max(0, subtotal - discount);
+  const taxAmount = (taxableAmount * currentSettings.tax_percent) / 100;
+  const grandTotal = taxableAmount + taxAmount;
+
+  if (itemsCountEl) itemsCountEl.textContent = totalItemsCount;
+  if (subtotalEl) subtotalEl.textContent = `${currentSettings.currency} ${subtotal.toFixed(2)}`;
+  if (taxAmountEl) taxAmountEl.textContent = `${currentSettings.currency} ${taxAmount.toFixed(2)}`;
+  if (totalPriceEl) totalPriceEl.textContent = `${currentSettings.currency} ${grandTotal.toFixed(2)}`;
+}
+
+// Binds checkout button, modal events
 function initCheckoutEvents() {
   const checkoutBtn = document.getElementById("checkout-btn");
   const closeBtn = document.getElementById("modal-close-btn");
@@ -287,39 +400,43 @@ function initCheckoutEvents() {
   }
 }
 
-// Handles checkout validation and submits POST request to /api/bill
+// Handles checkout validation and submits POST request to /api/orders
 async function handleCheckout() {
   hideError();
 
   const nameInput = document.getElementById("customer-name");
   const phoneInput = document.getElementById("customer-phone");
+  const discountInput = document.getElementById("summary-discount-input");
+  const payMethodSelected = document.querySelector('input[name="payment_method"]:checked');
+
   const name = nameInput ? nameInput.value.trim() : "";
   const phone = phoneInput ? phoneInput.value.trim() : "";
+  const discount = parseFloat(discountInput ? discountInput.value : 0) || 0;
+  const paymentMethod = payMethodSelected ? payMethodSelected.value : "Cash";
 
-  // 1. Validate Customer Name
   if (!name) {
-    showError("Please enter your name to proceed with checkout.");
+    showError("Please enter customer name to proceed with checkout.");
     if (nameInput) nameInput.focus();
     return;
   }
 
-  // 2. Validate Phone Number (must be exactly 10 digits)
   const digitsOnly = phone.replace(/\D/g, "");
   if (digitsOnly.length !== 10) {
-    showError("Please enter a valid 10-digit phone number (e.g., 9876543210).");
+    showError("Please enter a valid 10-digit customer phone number (e.g. 9876543210).");
     if (phoneInput) phoneInput.focus();
     return;
   }
 
-  // 3. Validate Cart is not empty
   if (cart.length === 0) {
     showError("Your cart is empty! Please add at least one item from the menu.");
     return;
   }
 
   const payload = {
-    name: name,
-    phone: digitsOnly,
+    customer_name: name,
+    customer_phone: digitsOnly,
+    payment_method: paymentMethod,
+    discount: discount,
     items: cart.map((item) => ({
       itemId: item.id,
       quantity: item.quantity
@@ -329,25 +446,28 @@ async function handleCheckout() {
   const checkoutBtn = document.getElementById("checkout-btn");
   if (checkoutBtn) {
     checkoutBtn.disabled = true;
-    checkoutBtn.textContent = "Generating Bill...";
+    checkoutBtn.textContent = "Processing Order...";
   }
 
   try {
-    const response = await fetch("/api/bill", {
+    const response = await Auth.fetch("/api/orders", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: payload
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to generate bill from server.");
+      throw new Error(data.error || "Failed to generate bill.");
     }
 
+    // Refresh menu items immediately so decremented stock is reflected
+    await fetchMenu();
+
+    // Show official receipt modal
     showReceiptModal(data);
   } catch (err) {
-    showError("Error: " + err.message);
+    showError("Order Error: " + err.message);
   } finally {
     if (checkoutBtn) {
       checkoutBtn.disabled = false;
@@ -356,16 +476,15 @@ async function handleCheckout() {
   }
 }
 
-// Shows friendly error message
 function showError(message) {
   const errorEl = document.getElementById("form-error");
   if (errorEl) {
     errorEl.textContent = message;
     errorEl.style.display = "block";
+    errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
 
-// Hides error banner
 function hideError() {
   const errorEl = document.getElementById("form-error");
   if (errorEl) {
@@ -376,15 +495,27 @@ function hideError() {
 
 // Populates and displays the receipt modal popup
 function showReceiptModal(bill) {
+  const canteenTitle = document.getElementById("receipt-canteen-name");
   const metaEl = document.getElementById("receipt-meta");
   const itemsBodyEl = document.getElementById("receipt-items-body");
+  const breakdownEl = document.getElementById("receipt-summary-breakdown");
   const totalEl = document.getElementById("receipt-grand-total");
   const modal = document.getElementById("receipt-modal");
 
+  const curr = bill.currency || currentSettings.currency;
+
+  if (canteenTitle) {
+    canteenTitle.textContent = bill.canteen_name || currentSettings.canteen_name;
+  }
+
+  const dateStr = new Date(bill.created_at || Date.now()).toLocaleString();
+
   metaEl.innerHTML = `
-    <div><strong>Customer ID :</strong> ${escapeHtml(bill.customerId || "C001")}</div>
-    <div><strong>Name        :</strong> ${escapeHtml(bill.name)}</div>
-    <div><strong>Phone       :</strong> ${escapeHtml(bill.phone)}</div>
+    <div><strong>Bill No   :</strong> ${escapeHtml(bill.bill_no)}</div>
+    <div><strong>Date/Time :</strong> ${escapeHtml(dateStr)}</div>
+    <div><strong>Customer  :</strong> ${escapeHtml(bill.customer_name)} (${escapeHtml(bill.customer_phone)})</div>
+    <div><strong>Cashier   :</strong> ${escapeHtml(bill.cashier_name || "Staff")}</div>
+    <div><strong>Payment   :</strong> ${escapeHtml(bill.payment_method)}</div>
   `;
 
   itemsBodyEl.innerHTML = bill.items.map((it) => {
@@ -393,27 +524,44 @@ function showReceiptModal(bill) {
       <tr>
         <td>
           <strong>${emoji} ${escapeHtml(it.name)}</strong><br>
-          <span style="font-size: 11px; color: #5C4A42;">${escapeHtml(it.category)}</span>
+          <span style="font-size: 11px; color: var(--dark-brown-muted);">${escapeHtml(it.category || "")}</span>
         </td>
-        <td>${it.quantity}</td>
-        <td>Rs. ${parseFloat(it.amount).toFixed(2)}</td>
+        <td style="text-align: center;">${it.quantity} &times; ${curr} ${parseFloat(it.price).toFixed(2)}</td>
+        <td style="text-align: right;">${curr} ${parseFloat(it.amount).toFixed(2)}</td>
       </tr>
     `;
   }).join("");
 
-  totalEl.textContent = `Rs. ${parseFloat(bill.grandTotal).toFixed(2)}`;
+  breakdownEl.innerHTML = `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+      <span>Subtotal:</span>
+      <span>${curr} ${parseFloat(bill.subtotal).toFixed(2)}</span>
+    </div>
+    ${bill.discount > 0 ? `
+    <div style="display: flex; justify-content: space-between; margin-bottom: 2px; color: #2E7D32;">
+      <span>Discount:</span>
+      <span>-${curr} ${parseFloat(bill.discount).toFixed(2)}</span>
+    </div>` : ''}
+    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+      <span>Tax (${bill.tax_percent || currentSettings.tax_percent}%):</span>
+      <span>+${curr} ${parseFloat(bill.tax).toFixed(2)}</span>
+    </div>
+  `;
+
+  totalEl.textContent = `${curr} ${parseFloat(bill.total).toFixed(2)}`;
   modal.style.display = "flex";
 }
 
-// Clears cart, form fields, and closes receipt modal for a fresh order
 function startNewOrder() {
   cart.length = 0;
   renderCart();
 
   const nameInput = document.getElementById("customer-name");
   const phoneInput = document.getElementById("customer-phone");
+  const discountInput = document.getElementById("summary-discount-input");
   if (nameInput) nameInput.value = "";
   if (phoneInput) phoneInput.value = "";
+  if (discountInput) discountInput.value = currentSettings.default_discount || 0;
 
   hideError();
 
@@ -421,18 +569,6 @@ function startNewOrder() {
   if (modal) modal.style.display = "none";
 }
 
-// Escapes HTML special characters for safe rendering
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-// Expose functions for inline HTML calls
 window.addToCart = addToCart;
 window.updateQuantity = updateQuantity;
 window.removeFromCart = removeFromCart;

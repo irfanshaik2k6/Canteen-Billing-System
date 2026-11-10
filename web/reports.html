@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Reports - Canteen Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#B85042">
+  <style>
+    .report-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .report-tab-btn {
+      padding: 10px 20px;
+      border: 1.5px solid var(--border-warm);
+      background: #FFFFFF;
+      border-radius: var(--radius-pill);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--dark-brown);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .report-tab-btn.active {
+      background: var(--terracotta);
+      border-color: var(--terracotta);
+      color: #FFFFFF;
+    }
+
+    .chart-box {
+      background: #FFFFFF;
+      border: 1.5px solid var(--border-warm);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .breakdown-card {
+      background: #FFFFFF;
+      border: 1.5px solid var(--border-warm);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .report-table th {
+      background: #FAF8F5;
+      padding: 10px 12px;
+      font-weight: 700;
+      color: var(--dark-brown);
+      border-bottom: 2px solid var(--border-warm);
+      text-align: left;
+    }
+
+    .report-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--dark-brown);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header"></header>
+
+  <main class="admin-container">
+    <div class="admin-card">
+      <div class="admin-header-row">
+        <div>
+          <h2 class="section-title">📊 Canteen Sales &amp; Revenue Analytics</h2>
+          <p style="font-size: 13px; color: var(--dark-brown-muted); margin-top: 4px;">
+            Detailed daily and monthly performance metrics, top-performing menu items, and payment method split.
+          </p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <input type="date" id="daily-date-picker" style="padding: 8px 12px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 13px; background: #FFF;">
+          <input type="month" id="monthly-month-picker" style="display: none; padding: 8px 12px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); font-size: 13px; background: #FFF;">
+          <button type="button" id="refresh-report-btn" class="btn-primary" style="padding: 8px 16px; font-size: 13px;">Refresh</button>
+        </div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="report-tabs">
+        <button type="button" class="report-tab-btn active" id="tab-daily">📅 Daily Report</button>
+        <button type="button" class="report-tab-btn" id="tab-monthly">📆 Monthly Report</button>
+      </div>
+
+      <!-- Stat Summary Cards -->
+      <div class="stat-summary-grid">
+        <div class="stat-box">
+          <span class="stat-box-title">Total Revenue</span>
+          <span class="stat-box-val highlight" id="stat-total-sales">Rs. 0.00</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-box-title">Total Bills / Orders</span>
+          <span class="stat-box-val" id="stat-bills-count">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-box-title">Average Bill Value</span>
+          <span class="stat-box-val" id="stat-avg-bill">Rs. 0.00</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-box-title">Tax Collected</span>
+          <span class="stat-box-val" id="stat-tax-collected">Rs. 0.00</span>
+        </div>
+      </div>
+
+      <!-- Visual Trend Chart -->
+      <div class="chart-box">
+        <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--dark-brown);" id="chart-heading">
+          📈 Sales Trend
+        </h3>
+        <canvas id="sales-chart" width="800" height="260" style="width: 100%; height: 260px; max-height: 260px;"></canvas>
+      </div>
+
+      <!-- Breakdown Grid: Top Selling Items & Payment Methods -->
+      <div class="breakdown-grid">
+        <div class="breakdown-card">
+          <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--dark-brown);">
+            🏆 Top Selling Menu Items
+          </h3>
+          <div class="table-responsive">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th style="text-align: center;">Qty</th>
+                  <th style="text-align: right;">Revenue</th>
+                </tr>
+              </thead>
+              <tbody id="top-items-tbody">
+                <tr><td colspan="4" class="empty-orders-msg">Loading top items...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="breakdown-card">
+          <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--dark-brown);">
+            💳 Payment Method Split
+          </h3>
+          <div class="table-responsive">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th style="text-align: center;">Bills Count</th>
+                  <th style="text-align: right;">Total Amount</th>
+                </tr>
+              </thead>
+              <tbody id="payment-split-tbody">
+                <tr><td colspan="3" class="empty-orders-msg">Loading payment split...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="auth-common.js"></script>
+  <script>
+    let currentMode = 'daily';
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!Auth.protectPage({ adminOnly: true, redirectUrl: 'login.html' })) return;
+      Auth.renderHeader('reports');
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const monthStr = new Date().toISOString().slice(0, 7);
+
+      document.getElementById('daily-date-picker').value = todayStr;
+      document.getElementById('monthly-month-picker').value = monthStr;
+
+      initTabs();
+      loadReport();
+
+      document.getElementById('refresh-report-btn').addEventListener('click', loadReport);
+      document.getElementById('daily-date-picker').addEventListener('change', loadReport);
+      document.getElementById('monthly-month-picker').addEventListener('change', loadReport);
+    });
+
+    function initTabs() {
+      const tabDaily = document.getElementById('tab-daily');
+      const tabMonthly = document.getElementById('tab-monthly');
+      const datePicker = document.getElementById('daily-date-picker');
+      const monthPicker = document.getElementById('monthly-month-picker');
+
+      tabDaily.addEventListener('click', () => {
+        currentMode = 'daily';
+        tabDaily.classList.add('active');
+        tabMonthly.classList.remove('active');
+        datePicker.style.display = 'block';
+        monthPicker.style.display = 'none';
+        loadReport();
+      });
+
+      tabMonthly.addEventListener('click', () => {
+        currentMode = 'monthly';
+        tabMonthly.classList.add('active');
+        tabDaily.classList.remove('active');
+        datePicker.style.display = 'none';
+        monthPicker.style.display = 'block';
+        loadReport();
+      });
+    }
+
+    async function loadReport() {
+      if (currentMode === 'daily') {
+        const date = document.getElementById('daily-date-picker').value;
+        await fetchDailyReport(date);
+      } else {
+        const month = document.getElementById('monthly-month-picker').value;
+        await fetchMonthlyReport(month);
+      }
+    }
+
+    async function fetchDailyReport(date) {
+      document.getElementById('chart-heading').textContent = `📈 Hourly Sales Distribution (${date})`;
+      try {
+        const res = await Auth.fetch(`/api/reports/daily?date=${date}`);
+        if (!res.ok) throw new Error("Could not fetch daily report.");
+        const data = await res.json();
+        renderSummary(data.summary);
+        renderTopItems(data.top_selling_items);
+        renderPaymentSplit(data.payment_method_split);
+        renderHourlyChart(data.hourly_breakdown);
+      } catch (err) {
+        alert("Report error: " + err.message);
+      }
+    }
+
+    async function fetchMonthlyReport(month) {
+      document.getElementById('chart-heading').textContent = `📈 Daily Sales Trend for ${month}`;
+      try {
+        const res = await Auth.fetch(`/api/reports/monthly?month=${month}`);
+        if (!res.ok) throw new Error("Could not fetch monthly report.");
+        const data = await res.json();
+        renderSummary(data.summary);
+        renderTopItems(data.top_selling_items);
+        renderPaymentSplit(data.payment_method_split);
+        renderDailyChart(data.daily_sales, month);
+      } catch (err) {
+        alert("Report error: " + err.message);
+      }
+    }
+
+    function renderSummary(summary) {
+      document.getElementById('stat-total-sales').textContent = `Rs. ${(summary.total_sales || 0).toFixed(2)}`;
+      document.getElementById('stat-bills-count').textContent = summary.bills_count || 0;
+      document.getElementById('stat-avg-bill').textContent = `Rs. ${(summary.avg_bill_value || 0).toFixed(2)}`;
+      document.getElementById('stat-tax-collected').textContent = `Rs. ${(summary.total_tax || 0).toFixed(2)}`;
+    }
+
+    function renderTopItems(items) {
+      const tbody = document.getElementById('top-items-tbody');
+      if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-orders-msg">No sales recorded for this period.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map((it, idx) => `
+        <tr>
+          <td><strong>#${idx + 1} ${escapeHtml(it.name)}</strong></td>
+          <td><span class="category-badge">${escapeHtml(it.category)}</span></td>
+          <td style="text-align: center;"><strong>${it.total_quantity}</strong></td>
+          <td style="text-align: right; font-weight: 700; color: var(--terracotta);">Rs. ${parseFloat(it.total_revenue).toFixed(2)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderPaymentSplit(splits) {
+      const tbody = document.getElementById('payment-split-tbody');
+      if (!splits || splits.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-orders-msg">No payments recorded.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = splits.map(sp => `
+        <tr>
+          <td><strong>${escapeHtml(sp.payment_method)}</strong></td>
+          <td style="text-align: center;">${sp.count}</td>
+          <td style="text-align: right; font-weight: 700;">Rs. ${parseFloat(sp.total).toFixed(2)}</td>
+        </tr>
+      `).join("");
+    }
+
+    // High performance HTML5 Canvas chart renderer
+    function renderDailyChart(dailyData, month) {
+      const canvas = document.getElementById('sales-chart');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = 260 * dpr;
+      ctx.scale(dpr, dpr);
+
+      const width = rect.width;
+      const height = 260;
+      ctx.clearRect(0, 0, width, height);
+
+      if (!dailyData || dailyData.length === 0) {
+        ctx.fillStyle = '#5C4A42';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No sales recorded this month.', width / 2, height / 2);
+        return;
+      }
+
+      const paddingLeft = 60;
+      const paddingBottom = 40;
+      const paddingTop = 20;
+      const paddingRight = 30;
+
+      const plotWidth = width - paddingLeft - paddingRight;
+      const plotHeight = height - paddingTop - paddingBottom;
+
+      const maxVal = Math.max(...dailyData.map(d => d.total), 100);
+
+      // Draw background grid lines
+      ctx.strokeStyle = '#F2EBE3';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = paddingTop + (plotHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(width - paddingRight, y);
+        ctx.stroke();
+
+        const labelVal = maxVal - (maxVal / 4) * i;
+        ctx.fillStyle = '#5C4A42';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`Rs. ${Math.round(labelVal)}`, paddingLeft - 8, y + 4);
+      }
+
+      // Draw bars
+      const barCount = dailyData.length;
+      const barWidth = Math.max(12, Math.min(32, (plotWidth / barCount) - 10));
+      const step = plotWidth / barCount;
+
+      dailyData.forEach((d, idx) => {
+        const barHeight = (d.total / maxVal) * plotHeight;
+        const x = paddingLeft + (idx * step) + (step - barWidth) / 2;
+        const y = paddingTop + plotHeight - barHeight;
+
+        // Gradient bar
+        const grad = ctx.createLinearGradient(0, y, 0, y + barHeight);
+        grad.addColorStop(0, '#B85042');
+        grad.addColorStop(1, '#E0A458');
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
+        ctx.fill();
+
+        // Label day
+        const day = d.date.split('-')[2];
+        ctx.fillStyle = '#2A1F1A';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(day, x + barWidth / 2, height - 16);
+      });
+    }
+
+    function renderHourlyChart(hourlyData) {
+      const canvas = document.getElementById('sales-chart');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = 260 * dpr;
+      ctx.scale(dpr, dpr);
+
+      const width = rect.width;
+      const height = 260;
+      ctx.clearRect(0, 0, width, height);
+
+      if (!hourlyData || hourlyData.length === 0) {
+        ctx.fillStyle = '#5C4A42';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No sales recorded today yet.', width / 2, height / 2);
+        return;
+      }
+
+      const paddingLeft = 60;
+      const paddingBottom = 40;
+      const paddingTop = 20;
+      const paddingRight = 30;
+
+      const plotWidth = width - paddingLeft - paddingRight;
+      const plotHeight = height - paddingTop - paddingBottom;
+
+      const maxVal = Math.max(...hourlyData.map(h => h.total), 50);
+
+      // Draw background grid lines
+      ctx.strokeStyle = '#F2EBE3';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = paddingTop + (plotHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(width - paddingRight, y);
+        ctx.stroke();
+
+        const labelVal = maxVal - (maxVal / 4) * i;
+        ctx.fillStyle = '#5C4A42';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`Rs. ${Math.round(labelVal)}`, paddingLeft - 8, y + 4);
+      }
+
+      const barCount = hourlyData.length;
+      const step = plotWidth / barCount;
+      const barWidth = Math.min(36, step - 8);
+
+      hourlyData.forEach((h, idx) => {
+        const barHeight = (h.total / maxVal) * plotHeight;
+        const x = paddingLeft + (idx * step) + (step - barWidth) / 2;
+        const y = paddingTop + plotHeight - barHeight;
+
+        ctx.fillStyle = '#E0A458';
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
+        ctx.fill();
+
+        ctx.fillStyle = '#2A1F1A';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${h.hour}:00`, x + barWidth / 2, height - 16);
+      });
+    }
+  </script>
+</body>
+</html>
+

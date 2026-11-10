@@ -1,0 +1,66 @@
+{
+  "name": "canteen-billing-system",
+  "version": "1.0.0",
+  "description": "Full-stack Canteen Billing & POS System with Express, SQLite, PWA, and Electron",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js",
+    "test": "node backend/test-api.js && node backend/test-e2e-scenario.js",
+    "electron": "node node_modules/electron/cli.js .",
+    "electron:start": "node node_modules/electron/cli.js .",
+    "build": "node node_modules/electron-builder/out/cli/cli.js --win",
+    "build:exe": "node node_modules/electron-builder/out/cli/cli.js --win nsis",
+    "build:dir": "node node_modules/electron-builder/out/cli/cli.js --dir"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.canteen.billingsystem",
+    "productName": "Canteen POS System",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "backend/**/*",
+      "web/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "dir",
+        "nsis"
+      ],
+      "icon": "web/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "keywords": [
+    "canteen",
+    "billing",
+    "pos",
+    "express",
+    "sqlite",
+    "electron",
+    "pwa"
+  ],
+  "author": "Canteen Billing System",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

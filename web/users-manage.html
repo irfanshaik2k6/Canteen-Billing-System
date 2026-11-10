@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Users - Canteen Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#B85042">
+  <style>
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .users-table th {
+      background: #FAF8F5;
+      padding: 12px 14px;
+      font-weight: 700;
+      color: var(--dark-brown);
+      border-bottom: 2px solid var(--border-warm);
+      text-align: left;
+    }
+
+    .users-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--dark-brown);
+      vertical-align: middle;
+    }
+
+    .users-table tr:hover {
+      background: #FFFDF9;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header"></header>
+
+  <main class="admin-container">
+    <div class="admin-card">
+      <div class="admin-header-row">
+        <div>
+          <h2 class="section-title">👥 Manage Staff &amp; Cashiers</h2>
+          <p style="font-size: 13px; color: var(--dark-brown-muted); margin-top: 4px;">
+            Create cashier logins, reset passwords, or enable/disable staff accounts.
+          </p>
+        </div>
+        <button type="button" id="open-add-user-btn" class="btn-primary">➕ Create New User</button>
+      </div>
+
+      <div id="users-feedback-banner" style="display: none; padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; font-weight: 600;"></div>
+
+      <div class="table-responsive">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created On</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr>
+              <td colspan="6" class="empty-orders-msg">Loading user accounts...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Create User Modal -->
+  <div id="create-user-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h2>Create Staff User</h2>
+        <button type="button" class="close-btn" id="create-user-close">&times;</button>
+      </div>
+      <form id="create-user-form" style="padding: 20px;" onsubmit="return false;">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Username</label>
+          <input type="text" id="new-username" placeholder="e.g. cashier2" required
+                 style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm);">
+        </div>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Password (min 6 characters)</label>
+          <input type="password" id="new-password" placeholder="Enter temporary or permanent password" required
+                 style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm);">
+        </div>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">Role</label>
+          <select id="new-role" style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm); background: #FFF;">
+            <option value="cashier" selected>Cashier (POS &amp; History Access)</option>
+            <option value="admin">Administrator (Full Access)</option>
+          </select>
+        </div>
+        <div id="create-user-error" class="form-error" style="display: none; margin-bottom: 14px;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-secondary" id="create-user-cancel">Cancel</button>
+          <button type="submit" class="btn-primary">Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reset Password Modal -->
+  <div id="reset-pwd-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2>Reset User Password</h2>
+        <button type="button" class="close-btn" id="reset-pwd-close">&times;</button>
+      </div>
+      <form id="reset-pwd-form" style="padding: 20px;" onsubmit="return false;">
+        <input type="hidden" id="reset-user-id">
+        <p style="font-size: 13px; margin-bottom: 14px;">
+          Resetting password for: <strong id="reset-username-display"></strong>
+        </p>
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; margin-bottom: 4px;">New Password (min 6 chars)</label>
+          <input type="password" id="admin-new-pwd-input" placeholder="Enter new password" required
+                 style="width: 100%; padding: 10px; border: 1.5px solid var(--border-warm); border-radius: var(--radius-sm);">
+        </div>
+        <div id="reset-pwd-error" class="form-error" style="display: none; margin-bottom: 14px;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-secondary" id="reset-pwd-cancel">Cancel</button>
+          <button type="submit" class="btn-primary">Reset Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="auth-common.js"></script>
+  <script>
+    let usersList = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      if (!Auth.protectPage({ adminOnly: true, redirectUrl: 'login.html' })) return;
+      Auth.renderHeader('users');
+
+      await loadUsers();
+      initEvents();
+    });
+
+    async function loadUsers() {
+      try {
+        const res = await Auth.fetch('/api/users');
+        if (res.ok) {
+          usersList = await res.json();
+          renderUsersTable();
+        }
+      } catch (err) {
+        showBanner("Failed to load users: " + err.message, true);
+      }
+    }
+
+    function renderUsersTable() {
+      const tbody = document.getElementById('users-tbody');
+      const currentUser = Auth.getUser();
+
+      if (!usersList || usersList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-orders-msg">No users found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = usersList.map((user) => {
+        const isActive = Boolean(user.is_active);
+        const isSelf = currentUser && currentUser.id === user.id;
+
+        return `
+          <tr>
+            <td><strong>#${user.id}</strong></td>
+            <td>
+              <strong>${escapeHtml(user.username)}</strong>
+              ${isSelf ? '<span class="status-pill status-active" style="margin-left: 6px; font-size: 10px;">You</span>' : ''}
+            </td>
+            <td>
+              <span class="category-badge" style="background: ${user.role === 'admin' ? '#FFF3E0' : '#E8F5E9'}; color: ${user.role === 'admin' ? '#E65100' : '#2E7D32'};">
+                ${user.role.toUpperCase()}
+              </span>
+            </td>
+            <td>
+              <span class="status-pill ${isActive ? 'status-active' : 'status-disabled'}">
+                ${isActive ? '✓ Active' : '✕ Disabled'}
+              </span>
+            </td>
+            <td><span class="timestamp-badge" style="font-size: 11px;">${new Date(user.created_at).toLocaleDateString()}</span></td>
+            <td style="text-align: right; white-space: nowrap;">
+              <button type="button" class="btn-edit-sm" onclick="openResetPasswordModal(${user.id}, '${escapeHtml(user.username)}')">🔑 Reset Pwd</button>
+              ${!isSelf ? `
+                <button type="button" class="${isActive ? 'btn-danger-sm' : 'btn-edit-sm'}" onclick="toggleUserStatus(${user.id}, ${!isActive})">
+                  ${isActive ? 'Disable' : 'Enable'}
+                </button>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function toggleUserStatus(userId, newStatus) {
+      try {
+        const res = await Auth.fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          body: { is_active: newStatus }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to update user status.");
+
+        showBanner(`✓ User account ${newStatus ? 'activated' : 'disabled'} successfully.`);
+        await loadUsers();
+      } catch (err) {
+        showBanner("Error: " + err.message, true);
+      }
+    }
+
+    function openResetPasswordModal(userId, username) {
+      document.getElementById('reset-user-id').value = userId;
+      document.getElementById('reset-username-display').textContent = username;
+      document.getElementById('admin-new-pwd-input').value = '';
+      document.getElementById('reset-pwd-error').style.display = 'none';
+      document.getElementById('reset-pwd-modal').style.display = 'flex';
+    }
+
+    function initEvents() {
+      const createModal = document.getElementById('create-user-modal');
+      const resetModal = document.getElementById('reset-pwd-modal');
+
+      document.getElementById('open-add-user-btn').addEventListener('click', () => {
+        document.getElementById('new-username').value = '';
+        document.getElementById('new-password').value = '';
+        document.getElementById('create-user-error').style.display = 'none';
+        createModal.style.display = 'flex';
+      });
+
+      document.getElementById('create-user-close').addEventListener('click', () => createModal.style.display = 'none');
+      document.getElementById('create-user-cancel').addEventListener('click', () => createModal.style.display = 'none');
+      document.getElementById('reset-pwd-close').addEventListener('click', () => resetModal.style.display = 'none');
+      document.getElementById('reset-pwd-cancel').addEventListener('click', () => resetModal.style.display = 'none');
+
+      document.getElementById('create-user-form').addEventListener('submit', async () => {
+        const username = document.getElementById('new-username').value.trim();
+        const password = document.getElementById('new-password').value.trim();
+        const role = document.getElementById('new-role').value;
+        const errEl = document.getElementById('create-user-error');
+
+        if (!username || password.length < 6) {
+          errEl.textContent = "Username is required and password must be at least 6 characters.";
+          errEl.style.display = 'block';
+          return;
+        }
+
+        try {
+          const res = await Auth.fetch('/api/users', {
+            method: 'POST',
+            body: { username, password, role, is_active: 1 }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to create user.");
+
+          createModal.style.display = 'none';
+          showBanner(`✓ User "${username}" created successfully.`);
+          await loadUsers();
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.style.display = 'block';
+        }
+      });
+
+      document.getElementById('reset-pwd-form').addEventListener('submit', async () => {
+        const userId = document.getElementById('reset-user-id').value;
+        const newPassword = document.getElementById('admin-new-pwd-input').value.trim();
+        const errEl = document.getElementById('reset-pwd-error');
+
+        if (newPassword.length < 6) {
+          errEl.textContent = "New password must be at least 6 characters long.";
+          errEl.style.display = 'block';
+          return;
+        }
+
+        try {
+          const res = await Auth.fetch(`/api/users/${userId}/reset-password`, {
+            method: 'PUT',
+            body: { new_password: newPassword }
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to reset password.");
+
+          resetModal.style.display = 'none';
+          showBanner("✓ Password reset successfully.");
+        } catch (err) {
+          errEl.textContent = err.message;
+          errEl.style.display = 'block';
+        }
+      });
+    }
+
+    function showBanner(msg, isError = false) {
+      const banner = document.getElementById('users-feedback-banner');
+      banner.textContent = msg;
+      banner.style.display = 'block';
+      banner.style.background = isError ? '#FFEBEE' : '#E8F5E9';
+      banner.style.color = isError ? '#C62828' : '#2E7D32';
+      banner.style.border = `1px solid ${isError ? '#FFCDD2' : '#A5D6A7'}`;
+
+      setTimeout(() => {
+        banner.style.display = 'none';
+      }, 5000);
+    }
+
+    window.toggleUserStatus = toggleUserStatus;
+    window.openResetPasswordModal = openResetPasswordModal;
+  </script>
+</body>
+</html>
+
